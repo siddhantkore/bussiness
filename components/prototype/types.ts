@@ -17,8 +17,23 @@ export interface AssetDoc {
   updatedAt: string;
 }
 
+export interface AssetLocation {
+  label?: string;
+  latitude?: number;
+  longitude?: number;
+}
+
+export interface ReviewEvent {
+  id: string;
+  status: "PENDING_REVIEW" | "APPROVED" | "REJECTED";
+  actorEmail: string;
+  note?: string;
+  createdAt: string;
+}
+
 export interface Asset {
   id: string;
+  issuerEmail?: string;
   issuer: string;
   title: string;
   category: string;
@@ -32,12 +47,16 @@ export interface Asset {
   listedUnits: number;
   documents: AssetDoc[];
   status: "DRAFT" | "PENDING_REVIEW" | "APPROVED" | "REJECTED";
+  supportingNote?: string;
+  location?: AssetLocation;
+  reviewEvents?: ReviewEvent[];
 }
 
 export interface Order {
   id: string;
   assetId: string;
   assetTitle: string;
+  investorEmail: string;
   units: number;
   amountInr: number;
   amountSol: number;

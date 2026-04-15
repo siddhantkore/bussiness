@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import React, { useState } from "react";
+import React from "react";
 
 interface NavItem {
   label: string;
@@ -79,13 +79,8 @@ interface SidebarProps {
   onClose: () => void;
 }
 
-/**
- * Sidebar – full navigation sidebar with mobile overlay support.
- */
-export function Sidebar({ mobileOpen, onClose }: SidebarProps) {
-  const pathname = usePathname();
-
-  const SidebarContent = () => (
+function SidebarContent({ pathname, onClose }: { pathname: string; onClose: () => void }) {
+  return (
     <div className="flex flex-col h-full" style={{ background: "#1e3a5f" }}>
       {/* Logo / Brand */}
       <div className="px-6 py-5 border-b border-blue-800/50">
@@ -173,12 +168,19 @@ export function Sidebar({ mobileOpen, onClose }: SidebarProps) {
       </div>
     </div>
   );
+}
+
+/**
+ * Sidebar – full navigation sidebar with mobile overlay support.
+ */
+export function Sidebar({ mobileOpen, onClose }: SidebarProps) {
+  const pathname = usePathname();
 
   return (
     <>
       {/* Desktop Sidebar */}
       <aside className="hidden lg:flex flex-col w-64 flex-shrink-0 h-screen sticky top-0 overflow-hidden shadow-xl">
-        <SidebarContent />
+        <SidebarContent pathname={pathname} onClose={onClose} />
       </aside>
 
       {/* Mobile Overlay */}
@@ -189,7 +191,7 @@ export function Sidebar({ mobileOpen, onClose }: SidebarProps) {
             onClick={onClose}
           />
           <aside className="absolute left-0 top-0 h-full w-64 shadow-xl">
-            <SidebarContent />
+            <SidebarContent pathname={pathname} onClose={onClose} />
           </aside>
         </div>
       )}

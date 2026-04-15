@@ -1,4 +1,5 @@
 import type { Asset, KycRequest, Order, PrototypeState } from "@/components/prototype/types";
+import type { SessionUser } from "@/lib/auth";
 
 export async function fetchBootstrap(): Promise<PrototypeState> {
   const res = await fetch("/api/prototype/bootstrap", { cache: "no-store" });
@@ -16,11 +17,18 @@ export async function submitAsset(payload: Record<string, unknown>): Promise<Ass
   return res.json();
 }
 
-export async function reviewAsset(id: string, status: "APPROVED" | "REJECTED"): Promise<Asset> {
+export async function fetchSession(): Promise<SessionUser | null> {
+  const res = await fetch("/api/prototype/session", { cache: "no-store" });
+  if (!res.ok) return null;
+  const data = await res.json();
+  return data.user ?? null;
+}
+
+export async function reviewAsset(id: string, status: "APPROVED" | "REJECTED", note?: string): Promise<Asset> {
   const res = await fetch(`/api/prototype/assets/${id}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ status }),
+    body: JSON.stringify({ status, note }),
   });
   if (!res.ok) throw new Error("Failed to update asset");
   return res.json();
@@ -46,11 +54,11 @@ export async function reviewKyc(id: string, status: "APPROVED" | "REJECTED"): Pr
   return res.json();
 }
 
-export async function bindWallet(email: string, walletAddress: string): Promise<KycRequest> {
+export async function bindWallet(walletAddress: string): Promise<KycRequest> {
   const res = await fetch("/api/prototype/wallet", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email, walletAddress }),
+    body: JSON.stringify({ walletAddress }),
   });
   if (!res.ok) throw new Error("Failed to bind wallet");
   return res.json();

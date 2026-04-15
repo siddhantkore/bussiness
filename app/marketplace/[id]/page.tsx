@@ -12,6 +12,8 @@ export default function AssetRoomPage() {
   const [assets, setAssets] = useState<Asset[]>([]);
   const [units, setUnits] = useState(10);
   const [toast, setToast] = useState("");
+  const [error, setError] = useState("");
+  const [pending, setPending] = useState(false);
 
   useEffect(() => {
     fetchBootstrap().then((data) => setAssets(data.assets));
@@ -23,8 +25,18 @@ export default function AssetRoomPage() {
 
   const handleOrder = async () => {
     if (!asset) return;
-    const created = await createOrder(asset.id, units);
-    setToast(`Primary order ${created.id} created for ${units} units.`);
+    setPending(true);
+    setError("");
+    try {
+      const created = await createOrder(asset.id, units);
+      setToast(`Primary order ${created.id} created for ${units} units.`);
+      const data = await fetchBootstrap();
+      setAssets(data.assets);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Order creation failed");
+    } finally {
+      setPending(false);
+    }
   };
 
   if (!asset) {
@@ -42,6 +54,11 @@ export default function AssetRoomPage() {
           <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-4">
             <p className="text-sm text-white/65">{asset.city}, {asset.state}</p>
             <p className="mt-2 text-sm text-white/80">{asset.description}</p>
+            {asset.location?.latitude && asset.location?.longitude && (
+              <p className="mt-2 text-sm text-white/60">
+                Location: {asset.location.label || "Pinned"} · {asset.location.latitude}, {asset.location.longitude}
+              </p>
+            )}
             <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-4">
               <div><p className="text-xs text-white/45">Minimum ticket</p><p className="font-semibold">₹{asset.minimumTicket.toLocaleString("en-IN")}</p></div>
               <div><p className="text-xs text-white/45">Unit price</p><p className="font-semibold">₹{asset.unitPrice.toLocaleString("en-IN")}</p></div>
@@ -64,18 +81,25 @@ export default function AssetRoomPage() {
         <aside className="space-y-4">
           <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-4">
             <p className="text-3xl font-semibold">Trade</p>
+            <label className="mt-3 grid gap-1 text-sm">
+              <span className="text-white/65">Units</span>
             <input
               type="number"
-              className="mt-3 w-full rounded-xl border border-white/10 bg-[#121418] px-3 py-2"
+              min={1}
+              max={asset.listedUnits}
+              className="w-full rounded-xl border border-white/10 bg-[#121418] px-3 py-2"
               value={units}
               onChange={(e) => setUnits(Number(e.target.value))}
             />
+            </label>
             <p className="mt-2 text-sm text-white/65">Estimated payment ₹{estimated.toLocaleString("en-IN")}</p>
+            {error && <p className="mt-2 text-sm text-red-300">{error}</p>}
             <button
               onClick={handleOrder}
-              className="mt-3 w-full rounded-xl bg-[#f7d8b0] px-3 py-2 text-sm font-semibold text-black"
+              disabled={pending}
+              className="mt-3 w-full rounded-xl bg-[#f7d8b0] px-3 py-2 text-sm font-semibold text-black disabled:opacity-60"
             >
-              Create primary order
+              {pending ? "Creating..." : "Create primary order"}
             </button>
             <Link href="/payments" className="mt-3 inline-block text-sm text-[#f7d8b0]">
               Go to payments →

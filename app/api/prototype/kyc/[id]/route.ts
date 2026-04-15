@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { requireRole } from "@/lib/auth";
 import { updateKycStatus } from "@/lib/prototypeStore";
 
 type Context = {
@@ -6,8 +7,16 @@ type Context = {
 };
 
 export async function PATCH(request: Request, context: Context) {
+  const { response } = requireRole(request, ["admin", "reviewer"]);
+  if (response) return response;
+
   const { id } = await context.params;
-  const body = await request.json();
+  let body: Record<string, unknown>;
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+  }
   const status = body.status as "APPROVED" | "REJECTED";
   if (status !== "APPROVED" && status !== "REJECTED") {
     return NextResponse.json({ error: "Invalid status" }, { status: 400 });

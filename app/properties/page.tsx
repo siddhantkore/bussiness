@@ -5,7 +5,7 @@ import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { DataTable, Column } from "@/components/ui/DataTable";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { Modal } from "@/components/ui/Modal";
-import { Input, Select, Textarea, Button, SearchBar } from "@/components/ui/FormControls";
+import { Input, Select, Button, SearchBar } from "@/components/ui/FormControls";
 import { Card } from "@/components/ui/Card";
 import { properties as mockProperties, Property } from "@/lib/mockData";
 import { formatCurrency, formatDate } from "@/lib/utils";

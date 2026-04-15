@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { requireRole } from "@/lib/auth";
 import { settleOrder } from "@/lib/prototypeStore";
 
 type Context = {
@@ -6,6 +7,9 @@ type Context = {
 };
 
 export async function POST(_: Request, context: Context) {
+  const { response } = requireRole(_, ["admin", "reviewer"]);
+  if (response) return response;
+
   const { id } = await context.params;
   const settled = settleOrder(id);
   if (!settled) {

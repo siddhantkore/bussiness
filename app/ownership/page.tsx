@@ -337,7 +337,7 @@ export default function OwnershipPage() {
                               {r.transactionValue > 0 && <span>💰 {formatCurrency(r.transactionValue)}</span>}
                             </div>
                             {r.remarks && (
-                              <p className="text-xs text-slate-500 mt-1.5 italic">"{r.remarks}"</p>
+                              <p className="text-xs text-slate-500 mt-1.5 italic">&ldquo;{r.remarks}&rdquo;</p>
                             )}
                           </div>
                         </div>

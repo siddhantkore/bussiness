@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
-import { getState } from "@/lib/prototypeStore";
+import { getSessionFromRequest } from "@/lib/auth";
+import { getStateForUser } from "@/lib/prototypeStore";
 
-export async function GET() {
-  return NextResponse.json(getState());
+export async function GET(request: Request) {
+  const user = getSessionFromRequest(request);
+  if (!user) {
+    return NextResponse.json({ error: "Authentication required" }, { status: 401 });
+  }
+  return NextResponse.json(getStateForUser(user));
 }

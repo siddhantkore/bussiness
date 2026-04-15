@@ -1,5 +1,9 @@
 "use server";
 
+import fs from "node:fs";
+import path from "node:path";
+import type { SessionUser } from "@/lib/auth";
+
 export type KycStatus = "NOT_STARTED" | "PENDING" | "APPROVED" | "REJECTED";
 export type AssetStatus = "DRAFT" | "PENDING_REVIEW" | "APPROVED" | "REJECTED";
 export type OrderStatus = "PENDING" | "PAID";
@@ -23,8 +27,23 @@ export interface AssetDoc {
   updatedAt: string;
 }
 
+export interface AssetLocation {
+  label?: string;
+  latitude?: number;
+  longitude?: number;
+}
+
+export interface ReviewEvent {
+  id: string;
+  status: Extract<AssetStatus, "PENDING_REVIEW" | "APPROVED" | "REJECTED">;
+  actorEmail: string;
+  note?: string;
+  createdAt: string;
+}
+
 export interface AssetIssue {
   id: string;
+  issuerEmail?: string;
   issuer: string;
   title: string;
   category: string;
@@ -39,12 +58,15 @@ export interface AssetIssue {
   documents: AssetDoc[];
   status: AssetStatus;
   supportingNote?: string;
+  location?: AssetLocation;
+  reviewEvents?: ReviewEvent[];
 }
 
 export interface BuyOrder {
   id: string;
   assetId: string;
   assetTitle: string;
+  investorEmail: string;
   units: number;
   amountInr: number;
   amountSol: number;
@@ -60,13 +82,15 @@ interface PrototypeState {
   orders: BuyOrder[];
 }
 
+const dbPath = path.join(process.cwd(), "data", "prototype-db.json");
+
 const initialState: PrototypeState = {
   treasuryInr: 175000,
   kycRequests: [
     {
       id: "kyc-1",
-      investorName: "soham",
-      email: "sohampirale2504@gmail.com",
+      investorName: "Investor User",
+      email: "investor@land.local",
       pan: "",
       aadhaarLast4: "",
       occupation: "",
@@ -77,6 +101,7 @@ const initialState: PrototypeState = {
   assets: [
     {
       id: "asset-1",
+      issuerEmail: "issuer@land.local",
       issuer: "Meera Capital Partners · Mumbai",
       title: "Whitefield Income Commons",
       category: "Real estate · Leased commercial building",
@@ -104,9 +129,24 @@ const initialState: PrototypeState = {
           updatedAt: "14 Mar 2026",
         },
       ],
+      location: {
+        label: "Whitefield, Bengaluru",
+        latitude: 12.9698,
+        longitude: 77.75,
+      },
+      reviewEvents: [
+        {
+          id: "rev-1",
+          status: "APPROVED",
+          actorEmail: "reviewer@land.local",
+          note: "Seed asset approved for demo marketplace.",
+          createdAt: "2026-04-01T10:00:00.000Z",
+        },
+      ],
     },
     {
       id: "asset-2",
+      issuerEmail: "issuer@land.local",
       issuer: "Monsoon Tech Ventures · Mumbai",
       title: "Monsoon Logistics Growth Shares",
       category: "Company shares · Growth round",
@@ -121,9 +161,19 @@ const initialState: PrototypeState = {
       listedUnits: 40,
       status: "APPROVED",
       documents: [],
+      reviewEvents: [
+        {
+          id: "rev-2",
+          status: "APPROVED",
+          actorEmail: "reviewer@land.local",
+          note: "Seed asset approved for demo marketplace.",
+          createdAt: "2026-04-01T10:00:00.000Z",
+        },
+      ],
     },
     {
       id: "asset-3",
+      issuerEmail: "issuer@land.local",
       issuer: "Pune Land Parcel SPV",
       title: "Pune Logistics Land Parcel",
       category: "Real estate · Industrial land parcel",
@@ -151,6 +201,20 @@ const initialState: PrototypeState = {
           updatedAt: "14 Mar 2026",
         },
       ],
+      location: {
+        label: "Pune logistics belt",
+        latitude: 18.6298,
+        longitude: 73.7997,
+      },
+      reviewEvents: [
+        {
+          id: "rev-3",
+          status: "PENDING_REVIEW",
+          actorEmail: "issuer@land.local",
+          note: "Submitted with land due diligence documents.",
+          createdAt: "2026-04-02T10:00:00.000Z",
+        },
+      ],
     },
   ],
   orders: [],
@@ -160,17 +224,69 @@ declare global {
   var __prototypeState: PrototypeState | undefined;
 }
 
-const state = globalThis.__prototypeState ?? structuredClone(initialState);
+function ensureStateShape(state: PrototypeState): PrototypeState {
+  return {
+    treasuryInr: Number(state.treasuryInr) || initialState.treasuryInr,
+    kycRequests: Array.isArray(state.kycRequests) ? state.kycRequests : [],
+    assets: Array.isArray(state.assets)
+      ? state.assets.map((asset) => ({
+          ...asset,
+          listedUnits: Number(asset.listedUnits) || 0,
+          reviewEvents: asset.reviewEvents ?? [],
+        }))
+      : [],
+    orders: Array.isArray(state.orders)
+      ? state.orders.map((order) => ({
+          ...order,
+          investorEmail: order.investorEmail ?? "investor@land.local",
+        }))
+      : [],
+  };
+}
+
+function loadState(): PrototypeState {
+  try {
+    if (!fs.existsSync(dbPath)) return structuredClone(initialState);
+    const parsed = JSON.parse(fs.readFileSync(dbPath, "utf8")) as PrototypeState;
+    return ensureStateShape(parsed);
+  } catch {
+    return structuredClone(initialState);
+  }
+}
+
+function persistState() {
+  fs.mkdirSync(path.dirname(dbPath), { recursive: true });
+  fs.writeFileSync(dbPath, JSON.stringify(state, null, 2));
+}
+
+const state = globalThis.__prototypeState ?? loadState();
 globalThis.__prototypeState = state;
 
 export function getState() {
   return state;
 }
 
+export function getStateForUser(user: SessionUser) {
+  if (user.role === "admin" || user.role === "reviewer") {
+    return state;
+  }
+
+  return {
+    treasuryInr: 0,
+    kycRequests: state.kycRequests.filter((item) => item.email === user.email),
+    assets:
+      user.role === "issuer"
+        ? state.assets.filter((asset) => asset.issuerEmail === user.email || asset.status === "APPROVED")
+        : state.assets.filter((asset) => asset.status === "APPROVED"),
+    orders: state.orders.filter((order) => order.investorEmail === user.email),
+  };
+}
+
 export function submitKyc(input: Omit<InvestorKyc, "id" | "status">) {
   const existing = state.kycRequests.find((item) => item.email === input.email);
   if (existing) {
     Object.assign(existing, input, { status: "PENDING" as const });
+    persistState();
     return existing;
   }
   const kyc: InvestorKyc = {
@@ -179,6 +295,7 @@ export function submitKyc(input: Omit<InvestorKyc, "id" | "status">) {
     status: "PENDING",
   };
   state.kycRequests.unshift(kyc);
+  persistState();
   return kyc;
 }
 
@@ -188,6 +305,7 @@ export function updateKycStatus(id: string, status: Extract<KycStatus, "APPROVED
     return null;
   }
   target.status = status;
+  persistState();
   return target;
 }
 
@@ -197,10 +315,12 @@ export function bindWallet(email: string, walletAddress: string) {
     return null;
   }
   target.walletAddress = walletAddress;
+  persistState();
   return target;
 }
 
 export function submitAsset(input: {
+  issuerEmail?: string;
   issuer: string;
   title: string;
   category: string;
@@ -212,9 +332,11 @@ export function submitAsset(input: {
   units: number;
   supportingNote?: string;
   documents: string[];
+  location?: AssetLocation;
 }) {
   const asset: AssetIssue = {
     id: `asset-${Date.now()}`,
+    issuerEmail: input.issuerEmail,
     issuer: input.issuer,
     title: input.title,
     category: input.category,
@@ -228,6 +350,16 @@ export function submitAsset(input: {
     listedUnits: 0,
     status: "PENDING_REVIEW",
     supportingNote: input.supportingNote,
+    location: input.location,
+    reviewEvents: [
+      {
+        id: `rev-${Date.now()}`,
+        status: "PENDING_REVIEW",
+        actorEmail: input.issuerEmail ?? "unknown",
+        note: input.supportingNote,
+        createdAt: new Date().toISOString(),
+      },
+    ],
     documents: input.documents.map((name, index) => ({
       id: `doc-${Date.now()}-${index}`,
       name,
@@ -236,10 +368,16 @@ export function submitAsset(input: {
     })),
   };
   state.assets.unshift(asset);
+  persistState();
   return asset;
 }
 
-export function updateAssetStatus(id: string, status: Extract<AssetStatus, "APPROVED" | "REJECTED">) {
+export function updateAssetStatus(
+  id: string,
+  status: Extract<AssetStatus, "APPROVED" | "REJECTED">,
+  actorEmail: string,
+  note?: string
+) {
   const target = state.assets.find((item) => item.id === id);
   if (!target) {
     return null;
@@ -248,20 +386,41 @@ export function updateAssetStatus(id: string, status: Extract<AssetStatus, "APPR
   if (status === "APPROVED" && target.listedUnits === 0) {
     target.listedUnits = Math.max(10, Math.floor(target.units * 0.1));
   }
+  target.reviewEvents = [
+    ...(target.reviewEvents ?? []),
+    {
+      id: `rev-${Date.now()}`,
+      status,
+      actorEmail,
+      note,
+      createdAt: new Date().toISOString(),
+    },
+  ];
+  persistState();
   return target;
 }
 
-export function createBuyOrder(assetId: string, units: number) {
+export function createBuyOrder(assetId: string, units: number, investorEmail: string) {
   const target = state.assets.find((item) => item.id === assetId && item.status === "APPROVED");
   if (!target) {
-    return null;
+    return { error: "Approved asset not found" as const };
+  }
+  if (!Number.isInteger(units) || units <= 0) {
+    return { error: "Units must be a positive whole number" as const };
   }
   const amountInr = units * target.unitPrice;
+  if (amountInr < target.minimumTicket) {
+    return { error: "Order does not meet the minimum ticket size" as const };
+  }
+  if (units > target.listedUnits) {
+    return { error: "Requested units exceed available listed units" as const };
+  }
   const amountSol = Number((amountInr / 8190).toFixed(2));
   const order: BuyOrder = {
     id: `ord-${Date.now()}`,
     assetId: target.id,
     assetTitle: target.title,
+    investorEmail,
     units,
     amountInr,
     amountSol,
@@ -269,7 +428,9 @@ export function createBuyOrder(assetId: string, units: number) {
     status: "PENDING",
     createdAt: new Date().toISOString(),
   };
+  target.listedUnits -= units;
   state.orders.unshift(order);
+  persistState();
   return order;
 }
 
@@ -278,7 +439,11 @@ export function settleOrder(id: string) {
   if (!target) {
     return null;
   }
+  if (target.status === "PAID") {
+    return target;
+  }
   target.status = "PAID";
   state.treasuryInr += target.amountInr;
+  persistState();
   return target;
 }

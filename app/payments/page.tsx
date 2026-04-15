@@ -7,6 +7,8 @@ import { fetchBootstrap, settleOrder } from "@/lib/prototypeClient";
 
 export default function PaymentsPage() {
   const [data, setData] = useState<PrototypeState | null>(null);
+  const [error, setError] = useState("");
+  const [pendingId, setPendingId] = useState("");
 
   const refresh = async () => {
     const state = await fetchBootstrap();
@@ -20,8 +22,16 @@ export default function PaymentsPage() {
   const pending = (data?.orders ?? []).filter((item) => item.status === "PENDING");
 
   const handleSettle = async (order: Order) => {
-    await settleOrder(order.id);
-    await refresh();
+    setPendingId(order.id);
+    setError("");
+    try {
+      await settleOrder(order.id);
+      await refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Settlement failed");
+    } finally {
+      setPendingId("");
+    }
   };
 
   return (
@@ -33,6 +43,7 @@ export default function PaymentsPage() {
         <p className="text-sm text-white/45">Available localnet INR balance</p>
         <p className="mt-2 text-4xl font-semibold">₹{(data?.treasuryInr ?? 0).toLocaleString("en-IN")}</p>
       </div>
+      {error && <p className="mt-3 text-sm text-red-300">{error}</p>}
 
       <div className="mt-4 space-y-3">
         {pending.length === 0 && (
@@ -51,9 +62,10 @@ export default function PaymentsPage() {
             </div>
             <button
               onClick={() => handleSettle(order)}
-              className="mt-3 rounded-xl bg-[#f7d8b0] px-3 py-2 text-sm font-semibold text-black"
+              disabled={pendingId === order.id}
+              className="mt-3 rounded-xl bg-[#f7d8b0] px-3 py-2 text-sm font-semibold text-black disabled:opacity-60"
             >
-              Record localnet payment
+              {pendingId === order.id ? "Recording..." : "Record localnet payment"}
             </button>
           </div>
         ))}
