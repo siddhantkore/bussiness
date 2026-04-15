@@ -1,36 +1,58 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Eternal Exchange UI Prototype
 
-## Getting Started
+This repository contains a working prototype that recreates the recently added UI screenshots from `public/` and wires them with a simple backend.
 
-First, run the development server:
+## Tech
+
+- Next.js 16 (App Router)
+- React 19
+- Tailwind CSS 4
+- In-memory API backend through App Router route handlers
+
+## Quick Start
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Prototype Routes
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- `/` : entry page with links to all prototype flows
+- `/verification` : issuer submits an asset + docs for review
+- `/review` : admin review queue (KYC + asset approval/rejection)
+- `/marketplace` : browse approved assets
+- `/marketplace/[id]` : asset room and create primary order
+- `/orders` : view order history
+- `/payments` : settle pending orders
+- `/portfolio` : see holdings/listings mock flow
+- `/kyc` : investor KYC + wallet binding
 
-## Learn More
+## End-to-End Demo Flow
 
-To learn more about Next.js, take a look at the following resources:
+1. Submit a new asset on `/verification`
+2. Approve it from `/review`
+3. Open it in `/marketplace`
+4. Place order in `/marketplace/[id]`
+5. Settle in `/payments`
+6. See paid holding in `/portfolio`
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Backend API (Simple Prototype)
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+All state is kept in memory (`lib/prototypeStore.ts`). It resets when the server restarts.
 
-## Deploy on Vercel
+- `GET /api/prototype/bootstrap`
+- `GET,POST /api/prototype/kyc`
+- `PATCH /api/prototype/kyc/:id`
+- `POST /api/prototype/wallet`
+- `GET,POST /api/prototype/assets`
+- `PATCH /api/prototype/assets/:id`
+- `GET,POST /api/prototype/orders`
+- `POST /api/prototype/orders/:id/settle`
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Notes
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- `npm run build` passes successfully.
+- Existing unrelated legacy routes/components remain in the repository and can be removed/refactored separately if you want only the new prototype surface.
